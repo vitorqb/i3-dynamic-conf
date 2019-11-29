@@ -2,6 +2,7 @@
 import argparse
 import copy
 import yaml
+import sys
 
 
 DESCRIPTION = """\
@@ -80,6 +81,10 @@ class ModeSpec:
         self._command_template = command_template
         self._commands = commands
 
+    @property
+    def name(self):
+        return self._name
+
     def render(self):
         """ Renders the mode as a string """
         out = 'mode "$mode_' + self._name + '" {\n'
@@ -130,10 +135,42 @@ class ModeSpec:
                 raise RuntimeError(x)
 
 
+class I3ConfigTemplate:
+    """ Represents the template for the i3 configuration """
+
+    def __init__(self, original_template):
+        self._original_template = original_template
+
+    def render(self, modes):
+        """ Renders the template into the final config.
+        `modes` must be a list of ModeSpec that will be substituted. """
+        out = copy.deepcopy(self._original_template)
+        for mode in modes:
+            out = self._substitute_mode(mode, out)
+        return out
+
+    def _substitute_mode(self, mode, template):
+        """ Substitutes `mode` into `template`, if found, and returns.
+        If not found, returns template as-is."""
+        mode_target = "{{MODE_" + mode.name + "}}"
+        return template.replace(mode_target, mode.render())
+
+
+def get_stdin_as_str():
+    out = ""
+    for line in sys.stdin:
+        out += line
+    return out
+
+
 # Script
 if __name__ == "__main__":
     args = parser.parse_args()
     config = yaml.safe_load(args.config_file)
-    for raw_mode in config['modes']:
-        mode = ModeSpec.from_dct(raw_mode)
-        print(mode.render())
+
+    modes = [ModeSpec.from_dct(raw_mode) for raw_mode in config['modes']]
+    raw_i3_config_template = get_stdin_as_str()
+
+    i3_config_template = I3ConfigTemplate(raw_i3_config_template)
+
+    print(i3_config_template.render(modes))
