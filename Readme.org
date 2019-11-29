@@ -1,0 +1,60 @@
+* Dynamic Config for I3
+
+  The idea behind this script is to automatize the generation of i3 config
+  files based on a template and a configuration file, covering some common
+  use cases for the config.
+
+** Configuration Options
+
+   The configuration yaml understands the following keys.
+
+*** Modes
+    
+    An array of specifications for modes.
+
+*Example*
+#+begin_src yaml
+  - name: go
+    command_template: "[con_mark=\"{}\"] focus"
+    commands:
+      - shortcut: f
+        template_args: [main_firefox]
+      - shortcut: e
+        template_args: [main_emaxs]
+      - shortcut: t
+        template_args: [main_terminal]
+  - name: i3
+    command_prefix: "exec "
+    commands:
+      - shortcut: m
+        command: my-i3-mark-window.sh
+      - shortcut: b
+        command: i3h-toggle-border
+      - shortcut: g
+        command: my-i3-prompt-mark-and-focus.sh
+#+end_src
+
+   Each item in the array represents a mode with these attributes:
+
+   - name
+
+     The name of the mode.
+
+   - command_template (or command_prefix)
+
+     A template, which will be used to render each command.
+     It will be used calling the python ~.format(**args)~ method.
+
+     Specifying ~command_prefix~ is the same as a template of the form
+     ~"command_prefix {}"~
+
+   - commands
+
+     A list of commands. Each command *must* specify a ~shortcut~, which
+     will be the shortcut to execute the command in this mode. Furthermore,
+     a command *must* specify either ~command~ or ~template_args~.
+
+     ~template_args~ is an array of args that will be used to format the ~template~
+     for the mode. Specifying ~command~ is the same as a ~template_args~ of a single
+     argument (~tamplte_args: [command]~). This is handy if you defined ~command_prefix~
+     in the mode config.
