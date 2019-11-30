@@ -4,16 +4,53 @@
   files based on a template and a configuration file, covering some common
   use cases for the config.
 
+  This is a personal project I used so I could keep a base i3 configuration
+  template to be used on different computers or with different profiles
+  (e.g. work vs home).
+
 ** Configuration Options
 
    The configuration yaml understands the following keys.
+
+*** Vars
+
+    Vars are the simplest dynamic config. They have a name and a
+    value, and they are substituted by their value.
+
+*Example (config)*
+#+begin_src yaml
+vars:
+  - name: font-name
+    value: "pango:DejaVu Sans Mono"
+  - name: font-size
+    value: "8"
+  - name: dmenu-args
+    value: "-l 20 -fn Hack-24"
+#+end_src
+
+*Example (template)*
+#+begin_src conf
+# ...
+font {{VAR_font-name}} {{VAR_font-size}}
+# ...
+bindsym $mod+d exec dmenu_run {{VAR_dmenu-args}}
+#+end_src
+
+*Example (rendered)*
+#+begin_src conf
+# ...
+font pango:DejaVu Sans Mono 8
+# ...
+bindsym $mod+d exec dmenu_run -l 20 -fn Hack-24
+#+end_src
 
 *** Modes
     
     An array of specifications for modes.
 
-*Example*
+*Example (config)*
 #+begin_src yaml
+modes:
   - name: go
     command_template: "[con_mark=\"{}\"] focus"
     commands:
@@ -21,17 +58,45 @@
         template_args: [main_firefox]
       - shortcut: e
         template_args: [main_emaxs]
-      - shortcut: t
-        template_args: [main_terminal]
   - name: i3
     command_prefix: "exec "
     commands:
       - shortcut: m
-        command: my-i3-mark-window.sh
+        command: i3h-mark-window.sh
       - shortcut: b
         command: i3h-toggle-border
-      - shortcut: g
-        command: my-i3-prompt-mark-and-focus.sh
+#+end_src
+
+*Example (template)*
+#+begin_src conf
+# ...
+set $mode_go "Go!"
+{{MODE_go}}
+bindsym $mod_go mode "$mode_go"
+# ...
+set $mode_i3 "i3 Shortcuts"
+{{MODE_i3}}
+bindsym $mod_i3 mode "$mode_i3"
+#+end_src
+
+*Example (rendered)*
+#+begin_src conf
+# ...
+set $mode_go "Go!"
+mode "$mode_go" {
+    bindsym f [con_mark="main_firefox"] focus; mode "default"
+    bindsym e [con_mark="main_emaxs"] focus; mode "default"
+    bindsym Escape mode "default"
+}
+bindsym $mod_go mode "$mode_go"
+# ...
+set $mode_i3 "i3 Shortcuts"
+mode "$mode_i3" {
+    bindsym m exec i3h-mark-window.sh; mode "default"
+    bindsym b exec i3h-toggle-border; mode "default"
+    bindsym Escape mode "default"
+}
+bindsym $mod_i3 mode "$mode_i3"
 #+end_src
 
    Each item in the array represents a mode with these attributes:
