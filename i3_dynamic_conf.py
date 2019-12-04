@@ -80,11 +80,14 @@ class ModeSpec:
     """Represents the specifications for an i3 mode."""
 
     REQUIRED_PARAMS = ["name", "commands"]
+    STR_ESCAPE_DEFAULT = '    bindsym Escape mode "default"\n'
 
-    def __init__(self, name, command_template, commands):
+    def __init__(self, name, command_template, commands, description=None, shortcut=None):
         self._name = name
         self._command_template = command_template
         self._commands = commands
+        self._description = description
+        self._shortcut = shortcut
 
     @property
     def name(self):
@@ -92,12 +95,30 @@ class ModeSpec:
 
     def render(self):
         """ Renders the mode as a string """
-        out = 'mode "$mode_' + self._name + '" {\n'
+        out = self._render_set_description(name=self._name, description=self._description)
+        out += 'mode "$mode_' + self._name + '" {\n'
         for command in self._commands:
             out += '    ' + command.render(self._command_template) + "\n"
-        out += '    bindsym Escape mode "default"\n'
-        out += '}'
+        out += self.STR_ESCAPE_DEFAULT
+        out += '}\n'
+        out += self._render_set_shortcut(name=self._name, shortcut=self._shortcut)
         return out
+
+    @staticmethod
+    def _render_set_description(name, description):
+        if description == "" or description is None:
+            return ""
+        return f"set $mode_{name} {description}\n"
+
+    @staticmethod
+    def _render_set_shortcut(name, shortcut):
+        if shortcut == "" or shortcut is None:
+            return ""
+        return 'bindsym {} mode "{}"\n'.format(shortcut, f"$mode_{name}")
+
+    @staticmethod
+    def _gen_mode_init_str(name):
+        return 'mode "$mode_' + name + '" {\n'
 
     @classmethod
     def from_dct(cls, dct):

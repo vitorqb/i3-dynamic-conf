@@ -48,9 +48,18 @@ bindsym $mod+d exec dmenu_run -l 20 -fn Hack-24
     
     An array of specifications for modes.
 
+    # !!!! TODO UPDATE WITH `description` and `shortcut`
+
 *Example (config)*
 #+begin_src yaml
 modes:
+  - name: simple_mode
+    shortcut: $mod+s
+    description: A simple mode
+    command_prefix: "exec echo "
+    commands:
+      - shortcut: e
+        command: "Hello World!"
   - name: go
     command_template: "[con_mark=\"{}\"] focus"
     commands:
@@ -69,6 +78,8 @@ modes:
 
 *Example (template)*
 #+begin_src conf
+#...
+{{MODE_simple_mode}}
 # ...
 set $mode_go "Go!"
 {{MODE_go}}
@@ -81,6 +92,14 @@ bindsym $mod_i3 mode "$mode_i3"
 
 *Example (rendered)*
 #+begin_src conf
+#...
+set $mode_simple_mode A simple mode
+mode "$mode_simple_mode" {
+    bindsym e exec echo Hello World!; mode "default"
+    bindsym Escape mode "default"
+}
+bindsym $mod+s mode "$mode_simple_mode"
+
 # ...
 set $mode_go "Go!"
 mode "$mode_go" {
@@ -88,6 +107,7 @@ mode "$mode_go" {
     bindsym e [con_mark="main_emaxs"] focus; mode "default"
     bindsym Escape mode "default"
 }
+
 bindsym $mod_go mode "$mode_go"
 # ...
 set $mode_i3 "i3 Shortcuts"
@@ -96,6 +116,7 @@ mode "$mode_i3" {
     bindsym b exec i3h-toggle-border; mode "default"
     bindsym Escape mode "default"
 }
+
 bindsym $mod_i3 mode "$mode_i3"
 #+end_src
 
@@ -123,3 +144,16 @@ bindsym $mod_i3 mode "$mode_i3"
      for the mode. Specifying ~command~ is the same as a ~template_args~ of a single
      argument (~tamplte_args: [command]~). This is handy if you defined ~command_prefix~
      in the mode config.
+
+   - shortcut (optional)
+
+     A shortcut. If given, a line like is appended at the end to set the shortcut,
+     like ~bindsym ${SHORTCUT} mode "$mode_{NAME}"~.
+
+   - description (optional)
+     
+     A description. If given, a line is added setting a variable with
+     this description before the mode is defined. **If not given, you
+     have to add the set part yourself**.
+
+     The variable is always called ~$mode_{NAME}~.
