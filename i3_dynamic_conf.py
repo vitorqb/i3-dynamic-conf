@@ -36,8 +36,10 @@ class CommandSpec:
         self._shortcut = shortcut
         self._template_args = template_args
 
-    def render(self, template):
-        out = f"bindsym {self._shortcut} {template}; mode \"default\""
+    def render(self, template, escape_after=True):
+        out = f"bindsym {self._shortcut} {template}"
+        if escape_after is True:
+            out += "; mode \"default\""
         out = out.format(*self._template_args)
         return out
 
@@ -82,9 +84,11 @@ class ModeSpec:
     REQUIRED_PARAMS = ["name", "commands"]
     STR_ESCAPE_DEFAULT = '    bindsym Escape mode "default"\n'
 
-    def __init__(self, name, command_template, commands, description=None, shortcut=None):
+    def __init__(self, name, command_template, commands, description=None, shortcut=None,
+                 escape_after_each_command=True):
         self._name = name
         self._command_template = command_template
+        self._escape_after_each_command = escape_after_each_command
         self._commands = commands
         self._description = description
         self._shortcut = shortcut
@@ -98,7 +102,10 @@ class ModeSpec:
         out = self._render_set_description(name=self._name, description=self._description)
         out += 'mode "$mode_' + self._name + '" {\n'
         for command in self._commands:
-            out += '    ' + command.render(self._command_template) + "\n"
+            out += '    '
+            out += command.render(self._command_template,
+                                  escape_after=self._escape_after_each_command)
+            out += "\n"
         out += self.STR_ESCAPE_DEFAULT
         out += '}\n'
         out += self._render_set_shortcut(name=self._name, shortcut=self._shortcut)

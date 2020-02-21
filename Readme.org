@@ -48,11 +48,10 @@ bindsym $mod+d exec dmenu_run -l 20 -fn Hack-24
     
     An array of specifications for modes.
 
-    # !!!! TODO UPDATE WITH `description` and `shortcut`
-
 *Example (config)*
 #+begin_src yaml
 modes:
+
   - name: simple_mode
     shortcut: $mod+s
     description: A simple mode
@@ -60,6 +59,7 @@ modes:
     commands:
       - shortcut: e
         command: "Hello World!"
+
   - name: go
     command_template: "[con_mark=\"{}\"] focus"
     commands:
@@ -67,6 +67,7 @@ modes:
         template_args: [main_firefox]
       - shortcut: e
         template_args: [main_emaxs]
+
   - name: i3
     command_prefix: "exec "
     commands:
@@ -74,6 +75,20 @@ modes:
         command: i3h-mark-window.sh
       - shortcut: b
         command: i3h-toggle-border
+
+  - name: resize
+    shortcut: $mod+r
+    command_template: "resize {} {} 10 px or 10 ppt"
+    escape_after_each_command: false
+    commands:
+      - shortcut: Left
+        template_args: [shrink, width]
+      - shortcut: Down
+        template_args: [grow, height]
+      - shortcut: Up
+        template_args: [shrink, height]
+      - shortcut: Right
+        template_args: [grow, width]
 #+end_src
 
 *Example (template)*
@@ -88,6 +103,8 @@ bindsym $mod_go mode "$mode_go"
 set $mode_i3 "i3 Shortcuts"
 {{MODE_i3}}
 bindsym $mod_i3 mode "$mode_i3"
+# ...
+{{MODE_resize}}
 #+end_src
 
 *Example (rendered)*
@@ -118,6 +135,15 @@ mode "$mode_i3" {
 }
 
 bindsym $mod_i3 mode "$mode_i3"
+# ...
+mode "$mode_resize" {
+    bindsym Left resize shrink width 10 px or 10 ppt
+    bindsym Down resize grow height 10 px or 10 ppt
+    bindsym Up resize shrink height 10 px or 10 ppt
+    bindsym Right resize grow width 10 px or 10 ppt
+    bindsym Escape mode "default"
+}
+bindsym $mod+r mode "$mode_resize"
 #+end_src
 
    Each item in the array represents a mode with these attributes:
@@ -145,6 +171,12 @@ bindsym $mod_i3 mode "$mode_i3"
      argument (~tamplte_args: [command]~). This is handy if you defined ~command_prefix~
      in the mode config.
 
+   - escape_after_each_command (optional)
+
+     A boolean indicating whether we should escape to the default mode after each
+     command. *Defaults to True*. This basically appends ~; mode "default"~ after
+     each command.     
+
    - shortcut (optional)
 
      A shortcut. If given, a line like is appended at the end to set the shortcut,
@@ -153,7 +185,7 @@ bindsym $mod_i3 mode "$mode_i3"
    - description (optional)
      
      A description. If given, a line is added setting a variable with
-     this description before the mode is defined. **If not given, you
-     have to add the set part yourself**.
+     this description before the mode is defined. **If not given, you**
+     **have to add the set part yourself**.
 
      The variable is always called ~$mode_{NAME}~.

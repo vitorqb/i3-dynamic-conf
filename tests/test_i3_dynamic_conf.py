@@ -1,6 +1,28 @@
 import i3_dynamic_conf as sut
 from unittest import TestCase, main
 
+class TestCommandSpec(TestCase):
+
+    def test_render_no_escape_after(self):
+        shortcut = "a"
+        template_args = ["FOO"]
+        command_spec = sut.CommandSpec(shortcut, template_args)
+
+        template = "BAR {}"
+
+        self.assertEqual(command_spec.render(template),
+                         "bindsym a BAR FOO; mode \"default\"")
+
+    def test_render_escape_after(self):
+        shortcut = "a"
+        template_args = ["FOO"]
+        command_spec = sut.CommandSpec(shortcut, template_args)
+
+        template = "BAR {}"
+
+        self.assertEqual(command_spec.render(template, escape_after=False),
+                         "bindsym a BAR FOO")
+
 
 class TestI3ConfigTemplate(TestCase):
 
