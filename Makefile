@@ -1,4 +1,4 @@
-.PHONY: venv
+.PHONY: venv package test
 
 activate_venv = . ./venv/bin/activate
 
@@ -18,3 +18,8 @@ package:
 	    --exclude __pycache__\
 	    -vzcf "${TARFILE}" \
 	    ./*
+
+test:
+	export PYTHONPATH="$(PYTHONPATH):$(shell pwd)" && \
+          $(activate_venv) && \
+          python ./tests/test_i3_dynamic_conf.py
