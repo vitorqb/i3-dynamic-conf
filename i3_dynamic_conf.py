@@ -226,15 +226,20 @@ def get_str_from_file(f):
     return out
 
 
-# Script
-if __name__ == "__main__":
-    args = parser.parse_args()
-    config = yaml.safe_load(args.config_file)
+def main(config_file, template_file):
+    config = yaml.safe_load(config_file)
 
     modes = [ModeSpec.from_dct(raw_mode) for raw_mode in config.pop('modes', [])]
     vars = [VarSpec.from_dct(raw_var) for raw_var in config.pop('vars', [])]
-    raw_i3_config_template = get_str_from_file(args.template)
+    raw_i3_config_template = get_str_from_file(template_file)
 
     i3_config_template = I3ConfigTemplate(raw_i3_config_template)
 
-    print(i3_config_template.render(modes, vars))
+    return i3_config_template.render(modes, vars)
+
+
+# Script
+if __name__ == "__main__":
+    args = parser.parse_args()
+    result = main(args.config_file, args.template)
+    print(result)

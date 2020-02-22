@@ -1,6 +1,27 @@
 import i3_dynamic_conf as sut
 from unittest import TestCase, main
 
+import os
+
+
+class IntegrationTest(TestCase):
+
+    def test_snapshot_1(self):
+        self.maxDiff = None
+        test_dir = os.path.dirname(os.path.realpath(__file__))
+        config_path = os.path.join(test_dir, "files", "configs",
+                                   "config1.yaml")
+        template_path = os.path.join(test_dir, "files", "templates",
+                                     "template1.conf")
+        snapshot_path = os.path.join(test_dir, "files", "snapshots",
+                                     "snapshot1.conf")
+        with open(config_path) as config_file,\
+                open(template_path) as template_file,\
+                open(snapshot_path) as snapshot_file:
+            self.assertEqual(sut.main(config_file, template_file),
+                             sut.get_str_from_file(snapshot_file).strip())
+
+
 class TestCommandSpec(TestCase):
 
     def test_render_no_escape_after(self):
