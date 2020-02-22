@@ -20,6 +20,4 @@ package:
 	    ./*
 
 test:
-	export PYTHONPATH="$(PYTHONPATH):$(shell pwd)" && \
-          $(activate_venv) && \
-          python ./tests/test_i3_dynamic_conf.py
+	$(activate_venv) && python -m unittest discover -p 'test_*'
