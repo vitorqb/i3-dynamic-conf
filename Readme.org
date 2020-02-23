@@ -55,10 +55,10 @@ modes:
   - name: simple_mode
     shortcut: $mod+s
     description: A simple mode
-    command_prefix: "exec echo "
+    command_template: "exec echo {}"
     commands:
       - shortcut: e
-        command: "Hello World!"
+        template_args: ["Hello World!"]
 
   - name: go
     command_template: "[con_mark=\"{}\"] focus"
@@ -69,12 +69,12 @@ modes:
         template_args: [main_emaxs]
 
   - name: i3
-    command_prefix: "exec "
+    command_template: "exec {}"
     commands:
       - shortcut: m
-        command: i3h-mark-window.sh
+        template_args: [i3h-mark-window.sh]
       - shortcut: b
-        command: i3h-toggle-border
+        template_args: [i3h-toggle-border]
 
   - name: resize
     shortcut: $mod+r
@@ -89,6 +89,9 @@ modes:
         template_args: [shrink, height]
       - shortcut: Right
         template_args: [grow, width]
+      - shortcut: b
+        template: "{}"
+        template_args: [resize set 640 480]
 #+end_src
 
 *Example (template)*
@@ -141,6 +144,7 @@ mode "$mode_resize" {
     bindsym Down resize grow height 10 px or 10 ppt
     bindsym Up resize shrink height 10 px or 10 ppt
     bindsym Right resize grow width 10 px or 10 ppt
+    bindsym b resize set 640 480
     bindsym Escape mode "default"
 }
 bindsym $mod+r mode "$mode_resize"
@@ -148,28 +152,91 @@ bindsym $mod+r mode "$mode_resize"
 
    Each item in the array represents a mode with these attributes:
 
-   - name
+   - *name*
 
      The name of the mode.
 
-   - command_template (or command_prefix)
+   - *command_template* (optional)
 
-     A template, which will be used to render each command.
-     It will be used calling the python ~.format(**args)~ method.
+     This is the template for all commands in this mode. This template
+     will be expanded with the ~template_args~ associated with each command.
 
-     Specifying ~command_prefix~ is the same as a template of the form
-     ~"command_prefix {}"~
+     An example will make it crystal clear: if you want a mode that
+     executes different programs, you can do this:
 
-   - commands
+#+begin_src yaml
+- name: exec_programs
+  description: A mode to execute programs
+  command_template: "exec {}"
+  commands:
+    - shortcut: f
+      template_args: [firefox]
+    - shortcut: c
+      template_args: [chrome]
+#+end_src
+     
+     Notice that ~command_template~ has a single placeholder (~{}~), so we give
+     it a single template argument (~firefox~ and ~chrome~). If we had a template
+     with two placeholder, we would give it two ~template_args~, and so on.
 
-     A list of commands. Each command *must* specify a ~shortcut~, which
-     will be the shortcut to execute the command in this mode. Furthermore,
-     a command *must* specify either ~command~ or ~template_args~.
+     ~command_template~ is optional because you can also specify a ~template~ for
+     each command individually.
 
-     ~template_args~ is an array of args that will be used to format the ~template~
-     for the mode. Specifying ~command~ is the same as a ~template_args~ of a single
-     argument (~tamplte_args: [command]~). This is handy if you defined ~command_prefix~
-     in the mode config.
+   - *commands*
+
+     A list of commands. Each command *must* specify at least a
+     ~shortcut~, which will be the shortcut to execute the command in
+     this mode, and a ~template_args~. It *may* specify a ~template~.
+
+     The value for ~template~, if not given, defaults to the ~command_template~
+     specified on the mode. This means that these two configs are equivalent:
+
+#+begin_src yaml
+- name: echo
+  command_template: "echo {}"
+  commands:
+    - shortcut: a
+      template_args: [hello]
+    - shortcut: b
+      template_args: [bye]
+# IS THE SAME AS
+- name: echo
+  commands:
+    - shortcut: a
+      template_args: [hello]
+      template: "echo {}"
+    - shortcut: b
+      template_args: [bye]
+      template: "echo {}"
+#+end_src
+
+     But notice that ~template~ always has priority over ~command_template~,
+     so you can have a single command not following the template for the mode.
+     Therefore the following two configs are equivalent:
+
+#+begin_src yaml
+- name: echo
+  command_template: "echo {}"
+  commands:
+    - shortcut: a
+      template_args: [hello]
+    - shortcut: b
+      template: "echo {} >/dev/stderr"
+      template_args: [bye]
+# IS THE SAME AS
+- name: echo
+  commands:
+    - shortcut: a
+      template_args: [hello]
+      template: "echo {}"
+    - shortcut: b
+      template_args: [bye]
+      template: "echo {} >/dev/stderr"
+#+end_src
+
+     ~template_args~ is an array of args that will be used to format
+     the command's ~template~. This uses the python string formatting:
+     ~template.format(*template_args)~
 
    - escape_after_each_command (optional)
 

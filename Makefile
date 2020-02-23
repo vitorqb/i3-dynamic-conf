@@ -20,4 +20,4 @@ package:
 	    ./*
 
 test:
-	$(activate_venv) && python -m unittest discover -p 'test_*'
+	$(activate_venv) && python -m unittest discover -p 'test_*' $(UNITTEST_ARGS)

@@ -27,21 +27,19 @@ class TestCommandSpec(TestCase):
     def test_render_no_escape_after(self):
         shortcut = "a"
         template_args = ["FOO"]
-        command_spec = sut.CommandSpec(shortcut, template_args)
-
         template = "BAR {}"
+        command_spec = sut.CommandSpec(shortcut, template, template_args)
 
-        self.assertEqual(command_spec.render(template),
+        self.assertEqual(command_spec.render(),
                          "bindsym a BAR FOO; mode \"default\"")
 
     def test_render_escape_after(self):
         shortcut = "a"
         template_args = ["FOO"]
-        command_spec = sut.CommandSpec(shortcut, template_args)
-
         template = "BAR {}"
+        command_spec = sut.CommandSpec(shortcut, template, template_args)
 
-        self.assertEqual(command_spec.render(template, escape_after=False),
+        self.assertEqual(command_spec.render(escape_after=False),
                          "bindsym a BAR FOO")
 
 
@@ -70,10 +68,11 @@ class TestModeSpec(TestCase):
 
     @staticmethod
     def _default_mode_spec(**kwargs):
+        command_template = "pre {} pos"
         args = {
             "name": "Foo",
-            "command_template": "pre {} pos",
-            "commands": [sut.CommandSpec("c", ["arg1"])],
+            "command_template": command_template,
+            "commands": [sut.CommandSpec("c", ["arg1"], command_template)],
             "description": "Desc1",
             **kwargs
         }
@@ -108,7 +107,8 @@ class TestModeSpec(TestCase):
         command_template = "before {} after"
         command_shotcut = "s"
         command_template_args = ["arg1"]
-        commands = [sut.CommandSpec(command_shotcut, command_template_args)]
+        commands = [sut.CommandSpec(command_shotcut, command_template,
+                                    command_template_args)]
         mode_spec = sut.ModeSpec(name, command_template, commands)
         expected = ('mode "$mode_foo" {\n'
                     '    bindsym s before arg1 after; mode "default"\n'
@@ -138,6 +138,90 @@ class TestModeSpec(TestCase):
         name = "FOO"
         exp = 'mode "$mode_FOO" {\n'
         self.assertEqual(sut.ModeSpec._gen_mode_init_str(name), exp)
+
+
+class ModeSpecBuilderTest(TestCase):
+
+    def test_base(self):
+        name = "FOO"
+        command_template = "{}"
+        commands_1_template = "{} {}"
+        commands_1_template_args = ["a", "b"]
+        commands = [{"template": commands_1_template,
+                     "template_args": commands_1_template_args,
+                     "shortcut": "c"}]
+        description = "BAR"
+        shortcut = "a"
+        escape_after_each_command = False
+        dct = {
+            "name": name,
+            "command_template": command_template,
+            "commands": commands,
+            "description": description,
+            "shortcut": shortcut,
+            "escape_after_each_command": escape_after_each_command
+        }
+
+        result = sut.ModeSpecBuilder.build(dct)
+
+        self.assertEqual(result._name, name)
+        self.assertEqual(result._command_template, command_template)
+        self.assertEqual(result._escape_after_each_command,
+                         escape_after_each_command)
+        self.assertEqual(len(result._commands), 1)
+        self.assertEqual(result._commands[0]._shortcut,
+                         commands[0]["shortcut"])
+        self.assertEqual(result._commands[0]._template,
+                         commands[0]["template"])
+        self.assertEqual(result._commands[0]._template_args,
+                         commands[0]["template_args"])
+        self.assertEqual(result._description, description)
+        self.assertEqual(result._shortcut, shortcut)
+
+    def test_standardize_dct_fails_if_no_template(self):
+        dct = {"commands": [{}]}
+        with self.assertRaises(sut.ConfigurationError) as e:
+            sut.ModeSpecBuilder._standardize_dct(dct)
+        self.assertEqual(
+            str(e.exception),
+            str(sut.ConfigurationError.missing_template_for_command()))
+
+    def test_ensure_valid_initialization_dct_fails_if_no_template_args(self):
+        dct = {"name": "foo", "commands": [{}], "command_template": "{}"}
+        with self.assertRaises(sut.ConfigurationError) as e:
+            sut.ModeSpecBuilder._ensure_valid_initialization_dct(dct)
+        self.assertEqual(
+            str(e.exception),
+            str(sut.ConfigurationError.missing_template_args_for_command()))
+
+    def test_ensure_valid_initialization_dct_fails_if_missing_param(self):
+        dct = {"name": "foo"}
+        with self.assertRaises(sut.ConfigurationError) as e:
+            sut.ModeSpecBuilder._ensure_valid_initialization_dct(dct)
+        self.assertEqual(str(e.exception),
+                         str(sut.ConfigurationError.missing_required_param(
+                             "commands")))
+
+    def test_ensure_commands_have_template_sets_template_from_command_template(self):
+        dct = {
+            "command_template": "FOO",
+            "commands": [{}]
+        }
+        result = sut.ModeSpecBuilder._ensure_commands_have_template(dct)
+        self.assertEqual(result, {**dct, "commands": [{"template": "FOO"}]})
+
+    def test_ensure_commands_have_template_keeps_command_template_if_set(self):
+        dct = {"commands": [{"template": "FOO"}]}
+        result = sut.ModeSpecBuilder._ensure_commands_have_template(dct)
+        self.assertEqual(result, dct)
+
+    def test_ensure_commands_have_template_raises_err_if_no_template(self):
+        dct = {"commands": [{}]}
+        with self.assertRaises(sut.ConfigurationError) as e:
+            sut.ModeSpecBuilder._ensure_commands_have_template(dct)
+        self.assertEqual(
+            str(e.exception),
+            str(sut.ConfigurationError.missing_template_for_command()))
 
 
 if __name__ == "__main__":
