@@ -28,16 +28,41 @@ parser.add_argument(
 )
 
 
+# Exceptions
+class ConfigurationError(BaseException):
+
+    @classmethod
+    def missing_template_for_command(cls):
+        msg = ("Either `template` must be given for the command or "
+               "`command_template` must be given for the mode")
+        return cls(msg)
+
+    @classmethod
+    def missing_template_args_for_command(cls):
+        return cls("`template_args` must be given for all commands.")
+
+    @classmethod
+    def missing_required_param(cls, x):
+        return cls(f"Missing required parameter: {x}")
+
+
 # Classes
 class CommandSpec:
     """Represents the specifications for an i3 mode command"""
 
-    def __init__(self, shortcut, template_args):
+    REQUIRED_PARAMS = ["template", "template_args", "shortcut"]
+
+    def __init__(self, shortcut, template, template_args):
         self._shortcut = shortcut
         self._template_args = template_args
+        self._template = template
 
-    def render(self, template, escape_after=True):
-        out = f"bindsym {self._shortcut} {template}"
+    def render(self, escape_after=True):
+        """
+        Renders the command to a string. If escape_after is True, appens a
+        escape to the default mode.
+        """
+        out = f"bindsym {self._shortcut} {self._template}"
         if escape_after is True:
             out += "; mode \"default\""
         out = out.format(*self._template_args)
@@ -47,45 +72,24 @@ class CommandSpec:
     def from_dct(cls, dct):
         """ Initializes from a dictionary """
         cls._ensure_valid_initialization_dct(dct)
-        new_dct = cls._standardize_dct(dct)
+        new_dct = copy.deepcopy(dct)
         return cls(**new_dct)
 
     @classmethod
     def _ensure_valid_initialization_dct(cls, dct):
         """ Ensures the dct is valid for constructing a CommandSpec """
-
-        if "shortcut" not in dct:
-            msg = "Missing shortcut"
-            raise RuntimeError(msg)
-
-        if "command" not in dct and "template_args" not in dct:
-            msg = "Either command or template_args must be given!"
-            raise RuntimeError(msg)
-
-        if "command" in dct and "template_args" in dct:
-            msg = "Can not handle both command and template_args"
-            raise RuntimeError(msg)
-
-    @classmethod
-    def _standardize_dct(cls, dct):
-        """ Standardizes the API for creating a new cls from dct """
-        new_dct = copy.deepcopy(dct)
-
-        if "command" in new_dct:
-            command = new_dct.pop("command")
-            new_dct["template_args"] = [command]
-
-        return new_dct
+        for x in cls.REQUIRED_PARAMS:
+            if x not in dct:
+                raise ConfigurationError.missing_required_param(x)
 
 
 class ModeSpec:
     """Represents the specifications for an i3 mode."""
 
-    REQUIRED_PARAMS = ["name", "commands"]
     STR_ESCAPE_DEFAULT = '    bindsym Escape mode "default"\n'
 
-    def __init__(self, name, command_template, commands, description=None, shortcut=None,
-                 escape_after_each_command=True):
+    def __init__(self, name, command_template, commands, description=None,
+                 shortcut=None, escape_after_each_command=True):
         self._name = name
         self._command_template = command_template
         self._escape_after_each_command = escape_after_each_command
@@ -99,16 +103,17 @@ class ModeSpec:
 
     def render(self):
         """ Renders the mode as a string """
-        out = self._render_set_description(name=self._name, description=self._description)
+        out = self._render_set_description(name=self._name,
+                                           description=self._description)
         out += 'mode "$mode_' + self._name + '" {\n'
         for command in self._commands:
             out += '    '
-            out += command.render(self._command_template,
-                                  escape_after=self._escape_after_each_command)
+            out += command.render(escape_after=self._escape_after_each_command)
             out += "\n"
         out += self.STR_ESCAPE_DEFAULT
         out += '}\n'
-        out += self._render_set_shortcut(name=self._name, shortcut=self._shortcut)
+        out += self._render_set_shortcut(name=self._name,
+                                         shortcut=self._shortcut)
         return out
 
     @staticmethod
@@ -127,45 +132,47 @@ class ModeSpec:
     def _gen_mode_init_str(name):
         return 'mode "$mode_' + name + '" {\n'
 
+
+class ModeSpecBuilder:
+    """ Helper class for building a ModeSpec from a dct """
+
+    REQUIRED_PARAMS = ["name", "commands"]
+
     @classmethod
-    def from_dct(cls, dct):
-        """ Initializes from a dictionary. """
+    def build(cls, dct):
+        """ Initializes a ModeSpec from a config dictionary. """
         cls._ensure_valid_initialization_dct(dct)
         new_dct = cls._standardize_dct(dct)
         new_dct["commands"] = [CommandSpec.from_dct(x) for x in new_dct["commands"]]
-        return cls(**new_dct)
-
-    @classmethod
-    def _standardize_dct(cls, dct):
-        """ Standardizes the configuration dct (returning a copy) """
-        new_dct = copy.deepcopy(dct)
-
-        if "command_prefix" not in new_dct and "command_template" not in new_dct:
-            new_dct["command_prefix"] = ""
-
-        if "command_prefix" in new_dct:
-            command_prefix = new_dct.pop('command_prefix')
-            new_dct["command_template"] = command_prefix + "{}"
-
-        return new_dct
+        return ModeSpec(**new_dct)
 
     @classmethod
     def _ensure_valid_initialization_dct(cls, dct):
         """ Ensures that a given dct is valid for initialization """
-
-        if "command_template" in dct and "command_prefix" in dct:
-            msg = "Can not define command_template and command_prefix together"
-            raise RuntimeError(msg)
-
-        if "command_template" not in dct and "command_prefix" not in dct:
-            msg = ("At least one of command_template or command_prefix must "
-                   "be supplied!")
-            raise RuntimeError(msg)
-
         for x in cls.REQUIRED_PARAMS:
             if x not in dct:
-                msg = f"Missing parameter: {x}"
-                raise RuntimeError(x)
+                raise ConfigurationError.missing_required_param(x)
+
+        for command in dct.get("commands", []):
+            if command.get("template_args") is None:
+                raise ConfigurationError.missing_template_args_for_command()
+
+    @classmethod
+    def _standardize_dct(cls, dct):
+        """ Standardizes the configuration dct (returning a copy) """
+        result = copy.deepcopy(dct)
+        result = cls._ensure_commands_have_template(result)
+        return result
+
+    @staticmethod
+    def _ensure_commands_have_template(dct):
+        out = copy.deepcopy(dct)
+        for command in out.get("commands", []):
+            if command.get("template") is None:
+                if out.get("command_template") is None:
+                    raise ConfigurationError.missing_template_for_command()
+                command["template"] = out["command_template"]
+        return out
 
 
 class I3ConfigTemplate:
@@ -226,10 +233,12 @@ def get_str_from_file(f):
     return out
 
 
+# Main
 def main(config_file, template_file):
     config = yaml.safe_load(config_file)
 
-    modes = [ModeSpec.from_dct(raw_mode) for raw_mode in config.pop('modes', [])]
+    modes = [ModeSpecBuilder.build(raw_mode)
+             for raw_mode in config.pop('modes', [])]
     vars = [VarSpec.from_dct(raw_var) for raw_var in config.pop('vars', [])]
     raw_i3_config_template = get_str_from_file(template_file)
 
@@ -238,7 +247,6 @@ def main(config_file, template_file):
     return i3_config_template.render(modes, vars)
 
 
-# Script
 if __name__ == "__main__":
     args = parser.parse_args()
     result = main(args.config_file, args.template)
